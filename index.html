@@ -75,7 +75,7 @@
       document.getElementById('btnOverride').className = `flex-1 py-2.5 rounded-xl font-bold transition ${mode === 'override' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700'}`;
     }
 
-    // 🌟 RELIABLE DROPDOWN AUTOMATION 🌟
+    // 🌟 CORRECTED DROPDOWN AUTOMATION (NO REDIRECTS OR FALLBACKS) 🌟
     async function loadMedicineDropdown() {
       const dropdown = document.getElementById('medName');
       try {
@@ -84,7 +84,7 @@
         
         dropdown.innerHTML = '<option value="">-- Choose Medicine --</option>';
         
-        if(medicines.length === 0) {
+        if(!medicines || medicines.length === 0) {
           dropdown.innerHTML = '<option value="">-- No Items Found In Spreadsheet --</option>';
           return;
         }
@@ -135,7 +135,6 @@
         document.getElementById('qtyIssue').value = '';
         document.getElementById('qtyOverride').value = '';
         
-        // Reload list automatically to confirm current status sync
         setTimeout(loadMedicineDropdown, 1500);
       } catch (err) {
         status.innerText = "❌ Transaction routing path error.";
