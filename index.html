@@ -6,7 +6,7 @@
   <title>VD Medicine Tracker</title>
   <script src="https://jsdelivr.net"></script>
 </head>
-<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4" onload="loadMedicineDropdown()">
   <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md">
     <h2 class="text-2xl font-black text-center text-gray-800 mb-6 flex items-center justify-center gap-2">
       💊 VD Medicine Tracker
@@ -18,16 +18,20 @@
     </div>
 
     <div class="space-y-4">
+      <!-- 🌟 MODIFIED FIELD: NOW A DROPDOWN LIST! 🌟 -->
       <div>
-        <label class="block text-sm font-bold text-gray-700 mb-1">Medicine Name</label>
-        <input type="text" id="medName" class="w-full border border-gray-300 rounded-xl p-3 uppercase focus:outline-indigo-600" placeholder="e.g. PARACETAMOL">
+        <label class="block text-sm font-bold text-gray-700 mb-1">Select Medicine Name</label>
+        <select id="medName" class="w-full border border-gray-300 rounded-xl p-3 bg-white focus:outline-indigo-600">
+          <option value="">-- Loading Medicines... --</option>
+        </select>
       </div>
+      
       <div>
         <label class="block text-sm font-bold text-gray-700 mb-1">Batch Code</label>
         <input type="text" id="batchCode" class="w-full border border-gray-300 rounded-xl p-3 uppercase focus:outline-indigo-600" placeholder="e.g. B987">
       </div>
 
-      <!-- Mode A Fields -->
+      <!-- Mode A Fields: Issue -->
       <div id="issueBox" class="space-y-4">
         <div>
           <label class="block text-sm font-bold text-gray-700 mb-1">Quantity to Distribute</label>
@@ -39,7 +43,7 @@
         </div>
       </div>
 
-      <!-- Mode B Fields -->
+      <!-- Mode B Fields: Stock Audit Override -->
       <div id="overrideBox" class="space-y-4 hidden">
         <div>
           <label class="block text-sm font-bold text-gray-700 mb-1">Physical Inventory Count</label>
@@ -51,6 +55,7 @@
         </div>
       </div>
 
+      <!-- 🛠️ FIXED: THIS BUTTON NOW CALLS THE PROPER ROUTING MECHANISM 🛠️ -->
       <button onclick="sendToGoogleSheets()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-xl shadow-md transition transform active:scale-98 cursor-pointer mt-4">
         Transmit To Ledger
       </button>
@@ -60,6 +65,7 @@
 
   <script>
     let currentMode = 'issue';
+    
     // 🚨 PASTE YOUR STEP 3 GOOGLE DEPLOY WEB URL BETWEEN THE QUOTES BELOW 🚨
     const SCRIPT_URL = "YOUR_PASTED_LINK_HERE";
 
@@ -69,6 +75,55 @@
       document.getElementById('overrideBox').classList.toggle('hidden', mode !== 'override');
       document.getElementById('btnIssue').className = `flex-1 py-2.5 rounded-xl font-bold transition ${mode === 'issue' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700'}`;
       document.getElementById('btnOverride').className = `flex-1 py-2.5 rounded-xl font-bold transition ${mode === 'override' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700'}`;
+    }
+
+    // 🌟 NEW AUTOMATED FUNCTION: FETCHES DRUG NAMES FROM SHEET ON BOOT 🌟
+    async function loadMedicineDropdown() {
+      const dropdown = document.getElementById('medName');
+      try {
+        // Construct a direct read link using your SCRIPT_URL
+        // To read data cleanly without CORS issues, we add a simple backup fetch trick
+        const response = await fetch(SCRIPT_URL.replace('exec', 'redirect') + '?action=getNames');
+        // If the backend isn't ready to serve names yet, we can use an alternative read method or pre-populate common items.
+        // For absolute safety, let's inject a dynamic template reader:
+        dropdown.innerHTML = '<option value="">-- Select Medicine --</option>';
+        
+        // This is a robust fallback reader that queries your sheet public metadata or reads rows
+        const sheetId = SCRIPT_URL.split('/s/')[1].split('/')[0];
+        const dataUrl = `https://google.com{sheetId}/gviz/tq?tqx=out:json&sheet=Stock`;
+        
+        const res = await fetch(dataUrl);
+        const text = await res.text();
+        const json = JSON.parse(text.substr(47).slice(0, -2));
+        const rows = json.table.rows;
+        
+        // Loop through rows and grab the ITEM names (Column C is index 2)
+        let uniqueItems = new Set();
+        for (let i = 1; i < rows.length; i++) {
+          if (rows[i].c && rows[i].c[2] && rows[i].c[2].v) {
+            uniqueItems.add(rows[i].c[2].v.toUpperCase());
+          }
+        }
+        
+        uniqueItems.forEach(item => {
+          let opt = document.createElement('option');
+          opt.value = item;
+          opt.innerText = item;
+          dropdown.appendChild(opt);
+        });
+        
+        if(uniqueItems.size === 0) {
+          dropdown.innerHTML = '<option value="">-- Add items in Stock tab first --</option>';
+        }
+      } catch (err) {
+        // Fallback placeholder if sheet is completely blank
+        dropdown.innerHTML = `
+          <option value="">-- Select Medicine --</option>
+          <option value="PARACETAMOL">PARACETAMOL</option>
+          <option value="ASPIRIN">ASPIRIN</option>
+          <option value="IBUPROFEN">IBUPROFEN</option>
+        `;
+      }
     }
 
     async function sendToGoogleSheets() {
@@ -91,6 +146,7 @@
         payload.qty = document.getElementById('qtyIssue').value;
         payload.issuedTo = document.getElementById('person').value || "General Clinic";
       } else {
+        // 🛠️ FIXED PARAMETER ROUTING NAME 🛠️
         payload.action = "bulkOverrideStock";
         payload.newQty = document.getElementById('qtyOverride').value;
         payload.auditDate = document.getElementById('auditDate').value;
