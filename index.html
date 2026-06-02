@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>VD Medicine Tracker</title>
-  <script src="https://jsdelivr.net"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center p-4" onload="loadMedicineDropdown()">
   <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md">
@@ -90,7 +90,7 @@
         
         // This is a robust fallback reader that queries your sheet public metadata or reads rows
         const sheetId = SCRIPT_URL.split('/s/')[1].split('/')[0];
-        const dataUrl = `https://google.com{sheetId}/gviz/tq?tqx=out:json&sheet=Stock`;
+        const dataUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=Stock`;
         
         const res = await fetch(dataUrl);
         const text = await res.text();
@@ -116,6 +116,7 @@
           dropdown.innerHTML = '<option value="">-- Add items in Stock tab first --</option>';
         }
       } catch (err) {
+        console.error("Error loading medicines:", err);
         // Fallback placeholder if sheet is completely blank
         dropdown.innerHTML = `
           <option value="">-- Select Medicine --</option>
@@ -153,12 +154,21 @@
       }
 
       try {
-        await fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(payload) });
+        const response = await fetch(SCRIPT_URL, { 
+          method: "POST", 
+          body: JSON.stringify(payload) 
+        });
+        const result = await response.text();
+        console.log("Google Sheets Response:", result);
+        
         status.innerText = "✅ Transaction Registered Successfully!";
         status.className = "text-center font-bold text-sm mt-4 text-emerald-600";
         document.getElementById('qtyIssue').value = '';
         document.getElementById('qtyOverride').value = '';
+        document.getElementById('medName').value = '';
+        document.getElementById('batchCode').value = '';
       } catch (err) {
+        console.error("Network error details:", err);
         status.innerText = "❌ Network communication error.";
         status.className = "text-center font-bold text-sm mt-4 text-red-500";
       }
