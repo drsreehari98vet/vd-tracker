@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>VD Medicine Tracker</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://jsdelivr.net"></script>
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center p-4" onload="loadMedicineDropdown()">
   <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md">
@@ -18,17 +18,16 @@
     </div>
 
     <div class="space-y-4">
-      <!-- 🌟 MODIFIED FIELD: NOW A DROPDOWN LIST! 🌟 -->
       <div>
         <label class="block text-sm font-bold text-gray-700 mb-1">Select Medicine Name</label>
-        <select id="medName" class="w-full border border-gray-300 rounded-xl p-3 bg-white focus:outline-indigo-600">
-          <option value="">-- Loading Medicines... --</option>
+        <select id="medName" class="w-full border border-gray-300 rounded-xl p-3 bg-white focus:outline-indigo-600 font-medium">
+          <option value="">-- Loading Stock List... --</option>
         </select>
       </div>
       
       <div>
         <label class="block text-sm font-bold text-gray-700 mb-1">Batch Code</label>
-        <input type="text" id="batchCode" class="w-full border border-gray-300 rounded-xl p-3 uppercase focus:outline-indigo-600" placeholder="e.g. B987">
+        <input type="text" id="batchCode" class="w-full border border-gray-300 rounded-xl p-3 uppercase focus:outline-indigo-600" placeholder="e.g. B100">
       </div>
 
       <!-- Mode A Fields: Issue -->
@@ -55,18 +54,17 @@
         </div>
       </div>
 
-      <!-- 🛠️ FIXED: THIS BUTTON NOW CALLS THE PROPER ROUTING MECHANISM 🛠️ -->
       <button onclick="sendToGoogleSheets()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-xl shadow-md transition transform active:scale-98 cursor-pointer mt-4">
         Transmit To Ledger
       </button>
-      <p id="status" class="text-center font-bold text-sm mt-4 min-h-[20px]"></p>
+      <p id="status" class="text-center font-bold text-sm mt-4 min-h-[20px] text-gray-600"></p>
     </div>
   </div>
 
   <script>
     let currentMode = 'issue';
     
-    // 🚨 PASTE YOUR STEP 3 GOOGLE DEPLOY WEB URL BETWEEN THE QUOTES BELOW 🚨
+    // 🚨 PASTE YOUR DEPLOYED GOOGLE WEB APP URL LINK BETWEEN THE QUOTES BELOW 🚨
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyKUiHeQYlXYJmdsKxSx2jW2TWVviQ1lULGsBX6Us2iPxMFDy5DifYr0y8A80gYwWYG/exec";
 
     function setMode(mode) {
@@ -77,53 +75,29 @@
       document.getElementById('btnOverride').className = `flex-1 py-2.5 rounded-xl font-bold transition ${mode === 'override' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700'}`;
     }
 
-    // 🌟 NEW AUTOMATED FUNCTION: FETCHES DRUG NAMES FROM SHEET ON BOOT 🌟
+    // 🌟 RELIABLE DROPDOWN AUTOMATION 🌟
     async function loadMedicineDropdown() {
       const dropdown = document.getElementById('medName');
       try {
-        // Construct a direct read link using your SCRIPT_URL
-        // To read data cleanly without CORS issues, we add a simple backup fetch trick
-        const response = await fetch(SCRIPT_URL.replace('exec', 'redirect') + '?action=getNames');
-        // If the backend isn't ready to serve names yet, we can use an alternative read method or pre-populate common items.
-        // For absolute safety, let's inject a dynamic template reader:
-        dropdown.innerHTML = '<option value="">-- Select Medicine --</option>';
+        const response = await fetch(SCRIPT_URL);
+        const medicines = await response.json();
         
-        // This is a robust fallback reader that queries your sheet public metadata or reads rows
-        const sheetId = SCRIPT_URL.split('/s/')[1].split('/')[0];
-        const dataUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=Stock`;
+        dropdown.innerHTML = '<option value="">-- Choose Medicine --</option>';
         
-        const res = await fetch(dataUrl);
-        const text = await res.text();
-        const json = JSON.parse(text.substr(47).slice(0, -2));
-        const rows = json.table.rows;
-        
-        // Loop through rows and grab the ITEM names (Column C is index 2)
-        let uniqueItems = new Set();
-        for (let i = 1; i < rows.length; i++) {
-          if (rows[i].c && rows[i].c[2] && rows[i].c[2].v) {
-            uniqueItems.add(rows[i].c[2].v.toUpperCase());
-          }
+        if(medicines.length === 0) {
+          dropdown.innerHTML = '<option value="">-- No Items Found In Spreadsheet --</option>';
+          return;
         }
         
-        uniqueItems.forEach(item => {
-          let opt = document.createElement('option');
-          opt.value = item;
-          opt.innerText = item;
-          dropdown.appendChild(opt);
+        medicines.forEach(med => {
+          let option = document.createElement('option');
+          option.value = med;
+          option.innerText = med;
+          dropdown.appendChild(option);
         });
-        
-        if(uniqueItems.size === 0) {
-          dropdown.innerHTML = '<option value="">-- Add items in Stock tab first --</option>';
-        }
       } catch (err) {
-        console.error("Error loading medicines:", err);
-        // Fallback placeholder if sheet is completely blank
-        dropdown.innerHTML = `
-          <option value="">-- Select Medicine --</option>
-          <option value="PARACETAMOL">PARACETAMOL</option>
-          <option value="ASPIRIN">ASPIRIN</option>
-          <option value="IBUPROFEN">IBUPROFEN</option>
-        `;
+        dropdown.innerHTML = '<option value="">❌ Error Fetching From Sheet</option>';
+        console.error(err);
       }
     }
 
@@ -133,12 +107,12 @@
       const status = document.getElementById('status');
 
       if (!item || !batch) {
-        status.innerText = "⚠️ Missing Medicine Name or Batch Code";
+        status.innerText = "⚠️ Missing Medicine Selection or Batch Code";
         status.className = "text-center font-bold text-sm mt-4 text-red-500";
         return;
       }
 
-      status.innerText = "Connecting to database ledger...";
+      status.innerText = "Processing secure network handshake...";
       status.className = "text-center font-bold text-sm mt-4 text-blue-500";
 
       let payload = { item: item, batch: batch };
@@ -146,30 +120,25 @@
         payload.action = "issueMedicine";
         payload.qty = document.getElementById('qtyIssue').value;
         payload.issuedTo = document.getElementById('person').value || "General Clinic";
+        if(!payload.qty) { status.innerText = "⚠️ Enter Issue Quantity"; status.className="text-red-500 text-center font-bold text-sm mt-4"; return; }
       } else {
-        // 🛠️ FIXED PARAMETER ROUTING NAME 🛠️
         payload.action = "bulkOverrideStock";
         payload.newQty = document.getElementById('qtyOverride').value;
         payload.auditDate = document.getElementById('auditDate').value;
+        if(!payload.newQty || !payload.auditDate) { status.innerText = "⚠️ Enter Quantity & Audit Date"; status.className="text-red-500 text-center font-bold text-sm mt-4"; return; }
       }
 
       try {
-        const response = await fetch(SCRIPT_URL, { 
-          method: "POST", 
-          body: JSON.stringify(payload) 
-        });
-        const result = await response.text();
-        console.log("Google Sheets Response:", result);
-        
-        status.innerText = "✅ Transaction Registered Successfully!";
+        await fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(payload) });
+        status.innerText = "✅ Action Saved in Google Sheet Ledger!";
         status.className = "text-center font-bold text-sm mt-4 text-emerald-600";
         document.getElementById('qtyIssue').value = '';
         document.getElementById('qtyOverride').value = '';
-        document.getElementById('medName').value = '';
-        document.getElementById('batchCode').value = '';
+        
+        // Reload list automatically to confirm current status sync
+        setTimeout(loadMedicineDropdown, 1500);
       } catch (err) {
-        console.error("Network error details:", err);
-        status.innerText = "❌ Network communication error.";
+        status.innerText = "❌ Transaction routing path error.";
         status.className = "text-center font-bold text-sm mt-4 text-red-500";
       }
     }
