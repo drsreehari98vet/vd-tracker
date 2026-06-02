@@ -4,10 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>VD Medicine Tracker</title>
-  <!-- Internal stylesheet backup prevents connection time-outs -->
   <style>
     body { font-family: system-ui, sans-serif; background-color: #f3f4f6; min-height: 100vh; display: flex; align-items: center; justify-content: center; margin: 0; padding: 16px; box-sizing: border-box; }
-    .card { background: white; padding: 24px; border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1); w-full: 100%; max-width: 400px; box-sizing: border-box; }
+    .card { background: white; padding: 24px; border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1); width: 100%; max-width: 400px; box-sizing: border-box; }
     h2 { text-align: center; margin-top: 0; margin-bottom: 24px; color: #1f2937; font-weight: 800; }
     .flex-group { display: flex; gap: 8px; margin-bottom: 24px; }
     .btn-tab { flex: 1; padding: 12px; border-radius: 12px; font-weight: bold; border: none; cursor: pointer; transition: 0.2s; }
@@ -78,8 +77,9 @@
   <script>
     let currentMode = 'issue';
     
-    // 🚨 PASTE YOUR DEPLOYED GOOGLE WEB APP URL LINK BETWEEN THE QUOTES BELOW 🚨
+    // 🌟 BUILT-IN: YOUR SPECIFIC ROUTING METRICS 🌟
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyKUiHeQYlXYJmdsKxSx2jW2TWVviQ1lULGsBX6Us2iPxMFDy5DifYr0y8A80gYwWYG/exec";
+    const SPREADSHEET_ID = "1RupXrB2LYQcy1FuC_SRVia2hwjp562ASMcAq_XbTibE";
 
     function setMode(mode) {
       currentMode = mode;
@@ -89,33 +89,39 @@
       document.getElementById('btnOverride').className = `btn-tab ${mode === 'override' ? 'btn-active' : 'btn-inactive'}`;
     }
 
-    // 🌟 BULLETPROOF DROPDOWN READER (BYPASSES CORS BLOCKS COMPLETELY) 🌟
+    // 🌟 DYNAMIC LOADER BYPASSES CORS AND SECURITY ISSUES 🌟
     async function loadMedicineDropdown() {
       const dropdown = document.getElementById('medName');
       try {
-        // Extract the unique ID of your Google Sheet automatically from your script link
-        const parts = SCRIPT_URL.split('/macros/s/');
-        if (parts.length < 2) {
-          dropdown.innerHTML = '<option value="">❌ Check SCRIPT_URL Link</option>';
+        const dataUrl = `https://google.com{SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=Stock`;
+        
+        const response = await fetch(dataUrl);
+        const text = await response.text();
+        
+        // Uncover the true object data from the Google JSON text block wrapper
+        const jsonString = text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1);
+        const data = JSON.parse(jsonString);
+        const rows = data.table.rows;
+        
+        dropdown.innerHTML = '<option value="">-- Choose Medicine --</option>';
+        let medicineSet = new Set();
+        
+        // Read Column C data fields (Index 2)
+        for (let i = 0; i < rows.length; i++) {
+          if (rows[i].c && rows[i].c[2] && rows[i].c[2].v) {
+            let itemVal = rows[i].c[2].v.toString().toUpperCase().trim();
+            if (itemVal !== "ITEM" && itemVal !== "") { 
+              medicineSet.add(itemVal);
+            }
+          }
+        }
+        
+        if (medicineSet.size === 0) {
+          dropdown.innerHTML = '<option value="">-- Spreadsheet Stock is Empty --</option>';
           return;
         }
         
-        // Use a secure alternate public data pathway to read your sheet headers
-        const sheetId = SCRIPT_URL.match(/\/s\/([^\/]+)/)[1];
-        
-        // This trick pulls the Google Sheet data structure as a secure JSON table string
-        const response = await fetch(`https://google.com`);
-        // ⚠️ IF THE ABOVE AUTODETECT TRICK FAILS, REPLACE "1_YOUR_SHEET_ID_HERE" WITH YOUR ACTUAL LONG SHEET ID FROM YOUR BROWSER ADDRESS BAR!
-        
-        // Alternatively, we look up your direct spreadsheet structure:
-        const urlParams = new URLSearchParams(window.location.search);
-        
-        // Let's create an elegant data reading fallback layout:
-        dropdown.innerHTML = '<option value="">-- Choose Medicine --</option>';
-        
-        // For a completely reliable, zero-config layout on mobile browsers, let's inject active choices:
-        const items = ["PARACETAMOL", "ASPIRIN", "IBUPROFEN"];
-        items.forEach(med => {
+        medicineSet.forEach(med => {
           let option = document.createElement('option');
           option.value = med;
           option.innerText = med;
@@ -123,7 +129,8 @@
         });
         
       } catch (err) {
-        dropdown.innerHTML = '<option value="">❌ Error Fetching Data</option>';
+        dropdown.innerHTML = '<option value="">⚠️ Error Loading List Items</option>';
+        console.error("Dropdown error details:", err);
       }
     }
 
@@ -155,12 +162,14 @@
       }
 
       try {
-        // 'no-cors' mode works perfectly for writing data via POST
         await fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(payload) });
         status.innerText = "✅ Action Saved in Google Sheet Ledger!";
         status.className = "status text-green";
         document.getElementById('qtyIssue').value = '';
         document.getElementById('qtyOverride').value = '';
+        
+        // Instantly refresh dropdown listings to show real-time changes
+        setTimeout(loadMedicineDropdown, 1500);
       } catch (err) {
         status.innerText = "❌ Transaction routing path error.";
         status.className = "status text-red";
